@@ -16,8 +16,8 @@ its only runtime dependency. It started from the official JavaScript template.
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/hub.test.js              # one file
+node --test --test-name-pattern "CI"      # tests whose name matches
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
@@ -31,16 +31,20 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only: src/app.js registers the handlers before connect()
+src/app.js                        every SDK handler -> the hub (also used by the tests)
+src/hub.js                        reading timer, states, new releases/issues/PRs/CI -> scene events
+src/devices.js                    one device per followed repository: features, names, values
+src/forge/client.js               Forgejo / Gitea API v1 (fetch), errors by kind, normalization
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    dashboard widget `repositories` (manifest `widgets`)
+src/texts.js                      connection, error, CI, report and summary texts (4 languages), dates
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/store.js, src/problems.js     /data/forgejo-state.json; one log line per repeated failure
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
 test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+                                  and helpers/fakeForge.js (built on test/fixtures/{forgejo,gitea})
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +74,9 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, manifest texts, widget and scene texts, and `docs/{en,fr,de,es}.md`,
+  kept in sync (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -197,6 +202,36 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
 - Les filtres de scène ne font qu'égalité et appartenance : un seuil reste le travail d'un capteur.
 - **Les clés de widgets, de déclencheurs et d'actions sont figées une fois publiées.**
 - `gladys_version` `>=5.1.0` dès qu'il y a widgets, déclencheurs ou actions de scène.
+
+## Forgejo / Gitea (propre à ce dépôt)
+
+- **Une seule API v1** pour Forgejo, Gitea et Codeberg (Forgejo). Jeton en
+  `Authorization: token …`, facultatif : sans jeton, les dépôts publics se lisent (Codeberg).
+  Droits utiles : `read:repository` (dépôt, versions, statuts) et `read:issue` (tickets, PR).
+- Cinq requêtes par dépôt et par lecture (dépôt, 5 versions, 5 tickets, 5 PR, statut combiné),
+  plus `/version` une fois : 20 dépôts au plus, intervalle 5 min à 1 h (10 min par défaut), minuteur
+  du conteneur, `should_poll: false`.
+- Identifiant d'appareil : l'**id numérique** du dépôt (`repo:<id>`), stable au renommage. Un
+  dépôt renommé répond par une **redirection** (307 Forgejo, 301 Gitea) : classée `moved`, l'appareil
+  reste, l'utilisateur corrige le nom.
+- Événements : premier passage d'un dépôt silencieux ; versions repérées par id (les brouillons,
+  listés à un jeton qui peut écrire, sont ignorés), tickets/PR par numéro maximal (`state=all`,
+  `type=issues|pulls`, tri du plus récent par défaut), CI par transition (échec ← non-échec ; succès ←
+  échec) ; 3 événements au plus par sorte, dépôt et lecture. Tout est sauvé **avant** l'envoi.
+- Une erreur de forge (injoignable, 401, 429, TLS, redirection de `/version`) est globale ; une erreur
+  de dépôt (404, 403, 307…) ne touche que lui.
+
+## Vérifié sur de vraies forges (20/10/2026)
+
+Forgejo 11.0.16 (`codeberg.org/forgejo/forgejo:11`) et Gitea 1.27.3 (`gitea/gitea:1`), SQLite, en
+Docker : réponses dans `test/fixtures/{forgejo,gitea}`. Différences relevées :
+
+- Commit **sans aucun statut** : Forgejo répond `state: ""`, Gitea `state: "pending"`, tous deux avec
+  `total_count: 0` et `statuses: null` → traité « Pas de CI » d'après `total_count`, jamais d'après
+  `state`.
+- Statut d'un **dépôt vide** : 500 (Forgejo) ou 404 (Gitea) → non demandé quand `empty: true`.
+- `open_issues_count` exclut les PR (`open_pr_counter` à part), sur les deux.
+- Jeton invalide : 401 même sur `/version`.
 
 ## Store
 

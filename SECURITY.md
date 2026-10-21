@@ -30,6 +30,24 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration handles:
+
+- the optional **access token** of the forge, stored by Gladys in the
+  integration configuration (never written to `/data`, never logged); it is
+  only sent, in the `Authorization` header, to the configured address, and
+  redirects are not followed so it never reaches another host. A read-only
+  token (`read:repository`, `read:issue`) is enough: the integration never
+  writes to the forge;
+- what is read from the forge: figures of the followed repositories, titles
+  and authors of their newest issues, pull requests and releases, the combined
+  CI state of the default branch — never the code, the bodies nor the
+  attachments;
+- `/data/forgejo-state.json`: for each followed repository, the release ids,
+  the highest issue and pull request numbers and the last CI result seen, and
+  the address of the forge;
+- network: HTTP(S) requests to the forge address, nothing else; no port is
+  opened.
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+and Forgejo or Gitea themselves.

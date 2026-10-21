@@ -1,177 +1,835 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Forgejo / Gitea",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Your Forgejo, Gitea or Codeberg repositories in Gladys: releases, issues, CI status.",
+    "fr": "Vos dépôts Forgejo, Gitea ou Codeberg dans Gladys : versions, tickets, état de la CI.",
+    "de": "Deine Forgejo-, Gitea- oder Codeberg-Repositorys in Gladys: Releases, Issues, CI-Status.",
+    "es": "Sus repositorios de Forgejo, Gitea o Codeberg en Gladys: versiones, incidencias, estado de la CI."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-forgejo:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-forgejo/main/cover.png",
+  "categories": ["services"],
   "transports": ["local", "cloud"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your forge",
+        "fr": "Votre forge",
+        "de": "Deine Forge",
+        "es": "Su forja"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Enter the address of your Forgejo or Gitea, or codeberg.org. A token is needed for private repositories only: create it in Settings → Applications with the read:repository and read:issue permissions. Then list the repositories to follow.",
+        "fr": "Saisissez l'adresse de votre Forgejo ou Gitea, ou codeberg.org. Un jeton n'est utile que pour les dépôts privés : créez-le dans Configuration → Applications avec les droits read:repository et read:issue. Listez ensuite les dépôts à suivre.",
+        "de": "Gib die Adresse deines Forgejo oder Gitea ein, oder codeberg.org. Ein Token brauchst du nur für private Repositorys: Erstelle es unter Einstellungen → Anwendungen mit den Rechten read:repository und read:issue. Liste dann die zu verfolgenden Repositorys auf.",
+        "es": "Introduzca la dirección de su Forgejo o Gitea, o codeberg.org. Solo necesita un token para los repositorios privados: créelo en Configuración → Aplicaciones con los permisos read:repository y read:issue. Después indique los repositorios que desea seguir."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-forgejo/blob/main/docs/en.md",
+          "label": {
+            "en": "Setup guide",
+            "fr": "Guide d'installation",
+            "de": "Einrichtungsanleitung",
+            "es": "Guía de instalación"
+          }
+        },
+        {
+          "url": "https://forgejo.org/docs/latest/user/api-usage/",
+          "label": {
+            "en": "Forgejo API tokens",
+            "fr": "Jetons d'API Forgejo",
+            "de": "Forgejo-API-Tokens",
+            "es": "Tokens de API de Forgejo"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "url",
+      "type": "string",
+      "label": {
+        "en": "Forge address",
+        "fr": "Adresse de la forge",
+        "de": "Adresse der Forge",
+        "es": "Dirección de la forja"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "description": {
+        "en": "The address you open the forge with: http://192.168.1.2:3000, https://git.example.com or codeberg.org.",
+        "fr": "L'adresse avec laquelle vous ouvrez la forge : http://192.168.1.2:3000, https://git.example.com ou codeberg.org.",
+        "de": "Die Adresse, mit der du die Forge öffnest: http://192.168.1.2:3000, https://git.example.com oder codeberg.org.",
+        "es": "La dirección con la que abre la forja: http://192.168.1.2:3000, https://git.example.com o codeberg.org."
+      },
+      "placeholder": {
+        "en": "e.g. codeberg.org",
+        "fr": "ex. codeberg.org",
+        "de": "z. B. codeberg.org",
+        "es": "p. ej. codeberg.org"
+      },
+      "required": false
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "token",
+      "type": "secret",
+      "label": {
+        "en": "Access token (optional)",
+        "fr": "Jeton d'accès (facultatif)",
+        "de": "Zugriffstoken (optional)",
+        "es": "Token de acceso (opcional)"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "Read-only is enough (read:repository, read:issue). Empty: public repositories only.",
+        "fr": "La lecture seule suffit (read:repository, read:issue). Vide : dépôts publics seulement.",
+        "de": "Nur-Lesen reicht (read:repository, read:issue). Leer: nur öffentliche Repositorys.",
+        "es": "Basta con solo lectura (read:repository, read:issue). Vacío: solo repositorios públicos."
+      },
+      "required": false
     },
     {
-      "key": "unit",
+      "key": "repositories",
+      "type": "string",
+      "label": {
+        "en": "Repositories to follow",
+        "fr": "Dépôts à suivre",
+        "de": "Zu verfolgende Repositorys",
+        "es": "Repositorios que seguir"
+      },
+      "description": {
+        "en": "owner/name or links copied from the browser, separated by commas. 20 at most.",
+        "fr": "propriétaire/nom ou liens copiés du navigateur, séparés par des virgules. 20 au plus.",
+        "de": "Besitzer/Name oder aus dem Browser kopierte Links, durch Kommas getrennt. Höchstens 20.",
+        "es": "propietario/nombre o enlaces copiados del navegador, separados por comas. 20 como máximo."
+      },
+      "placeholder": {
+        "en": "e.g. forgejo/forgejo, me/my-app",
+        "fr": "ex. forgejo/forgejo, moi/mon-app",
+        "de": "z. B. forgejo/forgejo, ich/meine-app",
+        "es": "p. ej. forgejo/forgejo, yo/mi-app"
+      },
+      "required": false
+    },
+    {
+      "key": "options",
+      "type": "section",
+      "label": {
+        "en": "Options",
+        "fr": "Options",
+        "de": "Optionen",
+        "es": "Opciones"
+      }
+    },
+    {
+      "key": "poll_interval",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle d'actualisation",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often the repositories are read: five requests per repository each time.",
+        "fr": "La fréquence de lecture des dépôts : cinq requêtes par dépôt à chaque fois.",
+        "de": "Wie oft die Repositorys gelesen werden: jedes Mal fünf Anfragen pro Repository.",
+        "es": "Con qué frecuencia se leen los repositorios: cinco solicitudes por repositorio cada vez."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "10",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "5",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        },
+        {
+          "value": "10",
+          "label": {
+            "en": "10 minutes",
+            "fr": "10 minutes",
+            "de": "10 Minuten",
+            "es": "10 minutos"
+          }
+        },
+        {
+          "value": "15",
+          "label": {
+            "en": "15 minutes",
+            "fr": "15 minutes",
+            "de": "15 Minuten",
+            "es": "15 minutos"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 minutes",
+            "fr": "30 minutes",
+            "de": "30 Minuten",
+            "es": "30 minutos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 hour",
+            "fr": "1 heure",
+            "de": "1 Stunde",
+            "es": "1 hora"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the names",
+        "fr": "Langue des noms",
+        "de": "Sprache der Namen",
+        "es": "Idioma de los nombres"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Language of the feature names (set when a device is added), of the CI statuses and of the scene texts.",
+        "fr": "Langue des noms des fonctionnalités (fixés à l'ajout d'un appareil), des états de CI et des textes de scène.",
+        "de": "Sprache der Funktionsnamen (beim Hinzufügen eines Geräts festgelegt), der CI-Status und der Szenentexte.",
+        "es": "Idioma de los nombres de las funciones (fijados al añadir un dispositivo), de los estados de CI y de los textos de escena."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "timeout_seconds": 120
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "release_published",
+      "label": {
+        "en": "New release published",
+        "fr": "Nouvelle version publiée",
+        "de": "Neues Release veröffentlicht",
+        "es": "Nueva versión publicada"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A release or a pre-release of a followed repository is out.",
+        "fr": "Une version ou une préversion d'un dépôt suivi est sortie.",
+        "de": "Ein Release oder Pre-Release eines verfolgten Repositorys ist erschienen.",
+        "es": "Ha salido una versión o una versión preliminar de un repositorio seguido."
       },
       "fields": [
         {
-          "key": "device",
+          "key": "repository",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": {
+            "en": "Repository",
+            "fr": "Dépôt",
+            "de": "Repository",
+            "es": "Repositorio"
+          }
         },
         {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "key": "release_type",
+          "type": "select",
+          "label": {
+            "en": "Type",
+            "fr": "Type",
+            "de": "Typ",
+            "es": "Tipo"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "stable",
+              "label": {
+                "en": "Release",
+                "fr": "Version",
+                "de": "Release",
+                "es": "Versión"
+              }
+            },
+            {
+              "value": "prerelease",
+              "label": {
+                "en": "Pre-release",
+                "fr": "Préversion",
+                "de": "Pre-Release",
+                "es": "Versión preliminar"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "repository_name",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Repository (owner/name)",
+            "fr": "Dépôt (propriétaire/nom)",
+            "de": "Repository (Besitzer/Name)",
+            "es": "Repositorio (propietario/nombre)"
+          }
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "label": {
+            "en": "Release name",
+            "fr": "Nom de la version",
+            "de": "Name des Release",
+            "es": "Nombre de la versión"
+          }
+        },
+        {
+          "key": "tag",
+          "type": "string",
+          "label": {
+            "en": "Tag",
+            "fr": "Étiquette",
+            "de": "Tag",
+            "es": "Etiqueta"
+          }
+        },
+        {
+          "key": "author",
+          "type": "string",
+          "label": {
+            "en": "Author",
+            "fr": "Auteur",
+            "de": "Autor",
+            "es": "Autor"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "Link",
+            "fr": "Lien",
+            "de": "Link",
+            "es": "Enlace"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary, ready for a message",
+            "fr": "Résumé, prêt pour un message",
+            "de": "Zusammenfassung für eine Nachricht",
+            "es": "Resumen, listo para un mensaje"
+          }
+        }
+      ]
+    },
+    {
+      "key": "issue_opened",
+      "label": {
+        "en": "New issue",
+        "fr": "Nouveau ticket",
+        "de": "Neues Issue",
+        "es": "Nueva incidencia"
+      },
+      "description": {
+        "en": "Someone opened an issue in a followed repository.",
+        "fr": "Quelqu'un a ouvert un ticket sur un dépôt suivi.",
+        "de": "Jemand hat ein Issue in einem verfolgten Repository eröffnet.",
+        "es": "Alguien ha abierto una incidencia en un repositorio seguido."
+      },
+      "fields": [
+        {
+          "key": "repository",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Repository",
+            "fr": "Dépôt",
+            "de": "Repository",
+            "es": "Repositorio"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "repository_name",
+          "type": "string",
+          "label": {
+            "en": "Repository (owner/name)",
+            "fr": "Dépôt (propriétaire/nom)",
+            "de": "Repository (Besitzer/Name)",
+            "es": "Repositorio (propietario/nombre)"
+          }
+        },
+        {
+          "key": "number",
+          "type": "number",
+          "label": {
+            "en": "Issue number",
+            "fr": "Numéro du ticket",
+            "de": "Issue-Nummer",
+            "es": "Número de la incidencia"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre",
+            "de": "Titel",
+            "es": "Título"
+          }
+        },
+        {
+          "key": "author",
+          "type": "string",
+          "label": {
+            "en": "Author",
+            "fr": "Auteur",
+            "de": "Autor",
+            "es": "Autor"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "Link",
+            "fr": "Lien",
+            "de": "Link",
+            "es": "Enlace"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary, ready for a message",
+            "fr": "Résumé, prêt pour un message",
+            "de": "Zusammenfassung für eine Nachricht",
+            "es": "Resumen, listo para un mensaje"
+          }
+        }
+      ]
+    },
+    {
+      "key": "pull_request_opened",
+      "label": {
+        "en": "New pull request",
+        "fr": "Nouvelle demande de fusion",
+        "de": "Neuer Pull-Request",
+        "es": "Nueva pull request"
+      },
+      "description": {
+        "en": "Someone opened a pull request in a followed repository.",
+        "fr": "Quelqu'un a ouvert une demande de fusion sur un dépôt suivi.",
+        "de": "Jemand hat einen Pull-Request in einem verfolgten Repository eröffnet.",
+        "es": "Alguien ha abierto una pull request en un repositorio seguido."
+      },
+      "fields": [
+        {
+          "key": "repository",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Repository",
+            "fr": "Dépôt",
+            "de": "Repository",
+            "es": "Repositorio"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "repository_name",
+          "type": "string",
+          "label": {
+            "en": "Repository (owner/name)",
+            "fr": "Dépôt (propriétaire/nom)",
+            "de": "Repository (Besitzer/Name)",
+            "es": "Repositorio (propietario/nombre)"
+          }
+        },
+        {
+          "key": "number",
+          "type": "number",
+          "label": {
+            "en": "Pull request number",
+            "fr": "Numéro de la demande",
+            "de": "Pull-Request-Nummer",
+            "es": "Número de la pull request"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre",
+            "de": "Titel",
+            "es": "Título"
+          }
+        },
+        {
+          "key": "author",
+          "type": "string",
+          "label": {
+            "en": "Author",
+            "fr": "Auteur",
+            "de": "Autor",
+            "es": "Autor"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "Link",
+            "fr": "Lien",
+            "de": "Link",
+            "es": "Enlace"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary, ready for a message",
+            "fr": "Résumé, prêt pour un message",
+            "de": "Zusammenfassung für eine Nachricht",
+            "es": "Resumen, listo para un mensaje"
+          }
+        }
+      ]
+    },
+    {
+      "key": "ci_status_changed",
+      "label": {
+        "en": "CI failing or back to green",
+        "fr": "CI en échec ou revenue au vert",
+        "de": "CI fehlgeschlagen oder wieder grün",
+        "es": "CI fallida o de nuevo en verde"
+      },
+      "description": {
+        "en": "The CI of the default branch starts failing, or passes again after a failure.",
+        "fr": "La CI de la branche principale passe en échec, ou réussit de nouveau après un échec.",
+        "de": "Die CI des Hauptzweigs schlägt fehl oder ist nach einem Fehler wieder erfolgreich.",
+        "es": "La CI de la rama principal empieza a fallar, o vuelve a pasar tras un fallo."
+      },
+      "fields": [
+        {
+          "key": "repository",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Repository",
+            "fr": "Dépôt",
+            "de": "Repository",
+            "es": "Repositorio"
+          }
+        },
+        {
+          "key": "state",
+          "type": "select",
+          "label": {
+            "en": "CI",
+            "fr": "CI",
+            "de": "CI",
+            "es": "CI"
+          },
+          "options": [
+            {
+              "value": "failure",
+              "label": {
+                "en": "Failing",
+                "fr": "En échec",
+                "de": "Fehlgeschlagen",
+                "es": "Fallida"
+              }
+            },
+            {
+              "value": "success",
+              "label": {
+                "en": "Back to green",
+                "fr": "Revenue au vert",
+                "de": "Wieder grün",
+                "es": "De nuevo en verde"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "repository_name",
+          "type": "string",
+          "label": {
+            "en": "Repository (owner/name)",
+            "fr": "Dépôt (propriétaire/nom)",
+            "de": "Repository (Besitzer/Name)",
+            "es": "Repositorio (propietario/nombre)"
+          }
+        },
+        {
+          "key": "branch",
+          "type": "string",
+          "label": {
+            "en": "Branch",
+            "fr": "Branche",
+            "de": "Zweig",
+            "es": "Rama"
+          }
+        },
+        {
+          "key": "sha",
+          "type": "string",
+          "label": {
+            "en": "Commit",
+            "fr": "Commit",
+            "de": "Commit",
+            "es": "Commit"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "Link",
+            "fr": "Lien",
+            "de": "Link",
+            "es": "Enlace"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary, ready for a message",
+            "fr": "Résumé, prêt pour un message",
+            "de": "Zusammenfassung für eine Nachricht",
+            "es": "Resumen, listo para un mensaje"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "get_repository",
+      "label": {
+        "en": "Read a repository",
+        "fr": "Lire un dépôt",
+        "de": "Repository lesen",
+        "es": "Leer un repositorio"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "The figures of a followed repository, for the next actions of the scene.",
+        "fr": "Les chiffres d'un dépôt suivi, pour les actions suivantes de la scène.",
+        "de": "Die Zahlen eines verfolgten Repositorys für die nächsten Aktionen der Szene.",
+        "es": "Las cifras de un repositorio seguido, para las siguientes acciones de la escena."
+      },
+      "timeout_seconds": 60,
       "fields": [
         {
-          "key": "device",
+          "key": "repository",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
+          "label": {
+            "en": "Repository",
+            "fr": "Dépôt",
+            "de": "Repository",
+            "es": "Repositorio"
+          },
           "required": true
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
+          "key": "repository_name",
+          "type": "string",
+          "label": {
+            "en": "Repository (owner/name)",
+            "fr": "Dépôt (propriétaire/nom)",
+            "de": "Repository (Besitzer/Name)",
+            "es": "Repositorio (propietario/nombre)"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "Link",
+            "fr": "Lien",
+            "de": "Link",
+            "es": "Enlace"
+          }
+        },
+        {
+          "key": "stars",
+          "type": "number",
+          "label": {
+            "en": "Stars",
+            "fr": "Étoiles",
+            "de": "Sterne",
+            "es": "Estrellas"
+          }
+        },
+        {
+          "key": "forks",
+          "type": "number",
+          "label": {
+            "en": "Forks",
+            "fr": "Forks",
+            "de": "Forks",
+            "es": "Forks"
+          }
+        },
+        {
+          "key": "open_issues",
+          "type": "number",
+          "label": {
+            "en": "Open issues",
+            "fr": "Tickets ouverts",
+            "de": "Offene Issues",
+            "es": "Incidencias abiertas"
+          }
+        },
+        {
+          "key": "open_pull_requests",
+          "type": "number",
+          "label": {
+            "en": "Open pull requests",
+            "fr": "Demandes de fusion ouvertes",
+            "de": "Offene Pull-Requests",
+            "es": "Pull requests abiertas"
+          }
+        },
+        {
+          "key": "latest_release",
+          "type": "string",
+          "label": {
+            "en": "Latest release",
+            "fr": "Dernière version",
+            "de": "Neuestes Release",
+            "es": "Última versión"
+          }
+        },
+        {
+          "key": "ci_status",
+          "type": "string",
+          "label": {
+            "en": "CI status",
+            "fr": "État de la CI",
+            "de": "CI-Status",
+            "es": "Estado de la CI"
+          }
+        },
+        {
+          "key": "ci_passing",
           "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "label": {
+            "en": "CI passing",
+            "fr": "CI réussie",
+            "de": "CI erfolgreich",
+            "es": "CI correcta"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "repositories",
+      "label": {
+        "en": "Repositories",
+        "fr": "Dépôts",
+        "de": "Repositorys",
+        "es": "Repositorios"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "CI status, latest release and open issues of the followed repositories.",
+        "fr": "État de la CI, dernière version et tickets ouverts des dépôts suivis.",
+        "de": "CI-Status, neuestes Release und offene Issues der verfolgten Repositorys.",
+        "es": "Estado de la CI, última versión e incidencias abiertas de los repositorios seguidos."
+      },
+      "icon": "git-branch",
+      "settings": [
+        {
+          "key": "repositories",
+          "type": "multi_select",
+          "source": "devices",
+          "label": {
+            "en": "Repositories (empty: all)",
+            "fr": "Dépôts (vide : tous)",
+            "de": "Repositorys (leer: alle)",
+            "es": "Repositorios (vacío: todos)"
+          },
+          "description": {
+            "en": "Empty: every followed repository. Only the devices added to Gladys can be chosen.",
+            "fr": "Vide : tous les dépôts suivis. Seuls les appareils ajoutés à Gladys sont proposés.",
+            "de": "Leer: alle verfolgten Repositorys. Nur die zu Gladys hinzugefügten Geräte sind wählbar.",
+            "es": "Vacío: todos los repositorios seguidos. Solo se pueden elegir los dispositivos añadidos a Gladys."
+          },
+          "required": false
+        }
+      ]
     }
   ]
 }

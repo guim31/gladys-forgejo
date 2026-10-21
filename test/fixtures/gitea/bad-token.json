@@ -1,0 +1,4 @@
+{
+  "message": "invalid username, password or token",
+  "url": "http://192.0.2.11:3000/api/swagger"
+}

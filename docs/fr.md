@@ -1,67 +1,167 @@
-# Template de démonstration
+# Forgejo / Gitea
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+[Forgejo](https://forgejo.org/) et [Gitea](https://about.gitea.com/) sont des
+forges logicielles libres et auto-hébergées, avec la même API ;
+[Codeberg](https://codeberg.org/) fait tourner Forgejo. Cette intégration suit
+les dépôts que vous listez : chacun devient un appareil avec ses étoiles, ses
+tickets et demandes de fusion ouverts, sa dernière version et l'état de la CI
+de sa branche principale. Vos scènes peuvent réagir à une **nouvelle version**,
+un **nouveau ticket**, une **nouvelle demande de fusion**, ou une CI qui
+**passe en échec ou revient au vert**, et un widget du tableau de bord montre
+tous les dépôts d'un coup d'œil.
 
-## Ce que vous obtenez
+Testée contre de vraies instances Forgejo 11.0 et Gitea 1.27 (Docker, SQLite),
+et l'API publique de Codeberg ; pas encore contre une vraie instance Gladys :
+vos retours sont les bienvenus dans
+[les issues](https://github.com/guim31/gladys-forgejo/issues).
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+## Ce qu'il vous faut
 
-## Configuration
+- Gladys Assistant 5.1.0 ou plus récent.
+- Un Forgejo ou un Gitea joignable depuis la machine de Gladys, ou une forge
+  publique comme codeberg.org.
+- Pour les dépôts privés seulement : un jeton d'accès d'un utilisateur qui peut
+  les lire.
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+L'intégration ne fait que lire : elle n'écrit jamais rien sur la forge. À
+chaque actualisation (10 minutes par défaut), elle fait cinq requêtes par
+dépôt : le dépôt, ses cinq dernières versions, ses cinq derniers tickets et
+demandes de fusion, et l'état de la CI de sa branche par défaut. Sur Codeberg,
+gardez un intervalle de 10 minutes ou plus et une liste courte : c'est un
+service gratuit tenu par une association, et trop de requêtes reçoivent une
+réponse « HTTP 429 ».
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+## Pour commencer
 
-## Actions
+### 1. Créer un jeton d'accès (dépôts privés)
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+Les dépôts publics n'ont besoin d'aucun jeton. Pour les privés, ouvrez dans la
+forge **Configuration → Applications → Générer un nouveau jeton**, donnez-lui
+un nom et les droits en lecture seule **read:repository** et **read:issue**,
+puis copiez-le. Le jeton voit ce que voit son utilisateur : un utilisateur
+dédié le limite davantage.
 
-## Scènes
+### 2. Configurer l'intégration
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+Dans Gladys, ouvrez **Intégrations → Forgejo / Gitea → Configuration** et
+remplissez :
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+- **Adresse de la forge** : l'adresse avec laquelle vous ouvrez la forge,
+  `http://192.168.1.2:3000`, `https://git.example.com` ou `codeberg.org`
+  (HTTPS pour un nom sans port).
+- **Jeton d'accès (facultatif)** : le jeton de l'étape 1.
+- **Dépôts à suivre** : `propriétaire/nom` ou liens copiés du navigateur,
+  séparés par des virgules, 20 au plus. Exemple : `forgejo/forgejo, moi/mon-app`.
+- **Intervalle d'actualisation** et **Langue des noms**.
+
+Cliquez sur **Tester la connexion** : la forge et sa version, puis chaque dépôt
+avec ses étoiles et l'état de sa CI, ou la raison pour laquelle il est
+illisible.
+
+### 3. Ajouter les appareils
+
+Dans **Découverte**, ajoutez les dépôts voulus comme appareils. Les chiffres
+arrivent aussitôt. Les déclencheurs de scène et le widget fonctionnent même
+pour un dépôt non ajouté comme appareil.
+
+## Les appareils
+
+Un appareil par dépôt, nommé `propriétaire/nom`, identifié par le numéro que la
+forge donne au dépôt : le renommer ou le transférer garde l'appareil (saisissez
+le nouveau nom dans la configuration).
+
+| Fonctionnalité              | Type     | Valeur                                                            |
+| --------------------------- | -------- | ----------------------------------------------------------------- |
+| Étoiles                     | compteur | étoiles du dépôt                                                  |
+| Forks                       | compteur | forks                                                             |
+| Tickets ouverts             | compteur | tickets ouverts (hors demandes de fusion)                         |
+| Demandes de fusion ouvertes | compteur | demandes de fusion ouvertes                                       |
+| Dernière version            | texte    | étiquette de la dernière version, sinon de la dernière préversion |
+| Date de la dernière version | texte    | sa date de publication                                            |
+| État de la CI               | texte    | Réussie, En échec, En cours ou Pas de CI                          |
+| CI réussie                  | binaire  | 1 quand la CI passe, 0 quand elle échoue                          |
+
+L'état de la CI est le statut combiné du dernier commit de la branche par
+défaut : toutes les vérifications posées dessus, Forgejo Actions et Gitea
+Actions compris, ainsi que Woodpecker, Drone ou Jenkins quand ils remontent à
+la forge. Un « avertissement » compte comme réussi. Pendant que la CI tourne,
+**CI réussie** garde sa dernière valeur.
 
 ## Tableau de bord
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+Le widget **Dépôts** montre une ligne par dépôt : l'état de la CI, la dernière
+version et le nombre de tickets ouverts, les dépôts en échec d'abord, puis ceux
+en cours. Choisissez des dépôts dans ses réglages, ou laissez vide pour tous.
+**Actualiser** relit la forge aussitôt.
+
+## Scènes
+
+### Déclencheurs
+
+- **Nouvelle version publiée** : une version ou une préversion est sortie
+  (filtre sur le dépôt et le type). Variables : le dépôt, le nom de la version,
+  son étiquette, son auteur, son lien et un résumé prêt pour un message.
+- **Nouveau ticket** : quelqu'un a ouvert un ticket. Variables : le dépôt, le
+  numéro, le titre, l'auteur, le lien et un résumé.
+- **Nouvelle demande de fusion** : quelqu'un a ouvert une demande de fusion.
+  Mêmes variables.
+- **CI en échec ou revenue au vert** : la CI de la branche par défaut passe en
+  échec, ou réussit de nouveau après un échec (filtre sur l'état). Variables :
+  le dépôt, la branche, le commit, le lien et un résumé.
+
+La première lecture d'un dépôt ne fait qu'apprendre son état : le passé n'est
+jamais annoncé. Les brouillons ne sont jamais annoncés. Trois événements d'une
+même sorte au plus sont envoyés par dépôt et par lecture (une rafale de tickets
+importés n'inonde pas les scènes). Ce qui a été vu est gardé par
+l'intégration : un redémarrage ne fait ni manquer un événement, ni l'annoncer
+deux fois.
+
+### Actions
+
+- **Lire un dépôt** : les chiffres d'un dépôt suivi comme variables pour les
+  actions suivantes : étoiles, forks, tickets et demandes de fusion ouverts,
+  dernière version, état de la CI, CI réussie.
+
+### Idées de scènes
+
+- **Nouvelle version publiée** d'un projet que vous auto-hébergez → envoyez un
+  message avec son résumé : c'est l'heure de mettre à jour.
+- **CI en échec ou revenue au vert**, état « en échec » → passez la lampe du
+  bureau en rouge ; état « revenue au vert » → repassez-la en blanc.
+- Chaque lundi matin → **Lire un dépôt**, puis envoyez-vous un message avec ses
+  tickets et demandes de fusion ouverts.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **La forge ne répond pas** : vérifiez l'adresse depuis la machine de Gladys
+  (même port, même protocole) ; un Gladys sous Docker joint l'hôte par son
+  adresse IP, pas par `localhost`.
+- **L'adresse redirige** : saisissez l'adresse `https://` sur laquelle le
+  navigateur arrive.
+- **Jeton d'accès refusé** : le jeton a été supprimé ou mal copié ; créez-en un
+  nouveau.
+- **Dépôt introuvable, ou privé sans jeton capable de le lire** : vérifiez
+  `propriétaire/nom` et les droits du jeton (read:repository).
+- **Dépôt renommé ou transféré** : saisissez son nouveau nom ; l'appareil
+  reste.
+- **Trop de requêtes** : choisissez un intervalle plus long ou suivez moins de
+  dépôts.
+- Les déclencheurs de tickets et de demandes de fusion ne se déclenchent jamais
+  sur un dépôt privé dont les chiffres sont justes : il manque au jeton le
+  droit **read:issue**.
+- **Certificat refusé** : un certificat auto-signé n'est pas accepté ; utilisez
+  l'adresse `http://` sur le réseau local.
+
+## Limites
+
+- Lecture seule : aucune commande, rien n'est écrit sur la forge.
+- 20 dépôts au plus, lus toutes les 5 minutes au plus souvent : un événement
+  arrive jusqu'à un intervalle plus tard.
+- La CI de la branche par défaut seulement ; un résultat de CI par commit (le
+  statut combiné), pas un par workflow.
+- Tickets et demandes de fusion sont repérés par leur numéro : un ticket
+  supprimé puis recréé n'est pas vu deux fois.
+- Les textes des appareils et des scènes suivent la langue de la configuration ;
+  les noms des fonctionnalités sont fixés à l'ajout d'un appareil.
+- Développée et testée contre Forgejo 11.0 et Gitea 1.27 ; les versions plus
+  anciennes avec la même API v1 devraient fonctionner, sans garantie.
