@@ -1,0 +1,4 @@
+{
+  "message": "user does not exist [uid: 0, name: ]",
+  "url": "http://192.0.2.10:3000/api/swagger"
+}
