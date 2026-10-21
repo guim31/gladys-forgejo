@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-21
+
 ### Added
 
 - One device per followed Forgejo, Gitea or Codeberg repository: stars, forks,
@@ -24,3 +26,6 @@ the notes of the version's GitHub Release.
   repository, failing ones first, with a Refresh button.
 - "Test the connection" shows the forge, its version and every repository.
 - Texts and documentation in English, French, German and Spanish.
+
+[Unreleased]: https://github.com/guim31/gladys-forgejo/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-forgejo/releases/tag/v1.0.0
