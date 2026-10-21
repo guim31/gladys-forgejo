@@ -306,3 +306,62 @@ test('local or cloud badge, and the name of the forge', () => {
   assert.equal(forgeName('11.0.16+gitea-1.22.0'), 'Forgejo 11.0.16');
   assert.equal(forgeName('1.27.3'), 'Gitea 1.27.3');
 });
+
+test('a part unreadable at first (no read:issue) announces nothing old once readable', async (t) => {
+  const forge = sampleForge();
+  const request = forge.request;
+  let blocked = true;
+  const world = await createWorld({
+    forge: Object.assign(forge, {
+      request: async (url, options) =>
+        blocked && url.includes('/issues?') ? { status: 403, body: '{}' } : request(url, options),
+    }),
+  });
+  t.after(() => world.app.stop());
+  assert.equal(world.hub.saved.repos[String(forge.repo(HOME).id)].issue, null);
+  blocked = false;
+  await world.hub.pollNow();
+  assert.equal(world.fake.sceneEvents.length, 0, 'old issues and pull requests are not new');
+  forge.addIssue(HOME, 'Really new');
+  await world.hub.pollNow();
+  assert.deepEqual(
+    events(world, TRIGGERS.ISSUE).map((event) => event.data.title),
+    ['Really new'],
+  );
+});
+
+test('an event Gladys refuses (it restarts) is sent again at the next reading', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const publish = world.gladys.publishSceneEvent.bind(world.gladys);
+  let refuse = true;
+  t.mock.method(world.gladys, 'publishSceneEvent', async (...args) => {
+    if (refuse) {
+      throw new Error('Gladys is restarting');
+    }
+    return publish(...args);
+  });
+  world.forge.addRelease(HOME, 'v1.1.0');
+  await world.hub.pollNow();
+  assert.equal(world.fake.sceneEvents.length, 0);
+  assert.equal(world.hub.saved.pending.length, 1, 'kept in /data');
+  refuse = false;
+  await world.hub.pollNow();
+  await world.hub.pollNow();
+  assert.deepEqual(
+    events(world, TRIGGERS.RELEASE).map((event) => event.data.tag),
+    ['v1.1.0'],
+  );
+  assert.equal(world.hub.saved.pending.length, 0);
+});
+
+test('without any release, the release date says so too', async (t) => {
+  const forge = sampleForge();
+  forge.repo(FORGEJO).releases = [];
+  const world = await createWorld({ forge });
+  t.after(() => world.app.stop());
+  await createDevices(world);
+  const ids = idsOf(world, FORGEJO);
+  assert.equal(world.fake.lastState(ids.feature('latest_release')), 'No release');
+  assert.equal(world.fake.lastState(ids.feature('latest_release_date')), 'No release');
+});

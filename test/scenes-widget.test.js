@@ -59,6 +59,18 @@ test('the widget shows the chosen repositories, and says why it is empty', async
   assert.equal(down.components[0].text, 'the forge does not answer');
 });
 
+test('a repository never read shows as unreadable, first', async (t) => {
+  const world = await createWorld({ config: { ...CONFIG, repositories: `nobody/typo, ${HOME}` } });
+  t.after(() => world.app.stop());
+  assert.deepEqual(
+    rows(await widget(world)).map((row) => [row.label, row.value]),
+    [
+      ['nobody/typo', 'Unreadable'],
+      [HOME, 'Passing · v1.0.0 · 2 issues'],
+    ],
+  );
+});
+
 test('many repositories: the widget keeps ten rows', async (t) => {
   const forge = new FakeForge();
   const names = Array.from({ length: 14 }, (_, i) => `org/repo-${String(i).padStart(2, '0')}`);

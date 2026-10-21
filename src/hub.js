@@ -77,6 +77,8 @@ const MAX_EVENTS = 3;
 // Release ids remembered per repository.
 const SEEN_RELEASES = 20;
 const MAX_TRANSPORTS_PER_REQUEST = 100;
+// Refused scene events kept for the next reading, at most.
+const MAX_PENDING = 20;
 
 /**
  * A forge on the local network (private address, `.local`, a name without a
@@ -112,10 +114,18 @@ const key = (fullName) => fullName.toLowerCase();
 async function mapLimited(items, limit, fn) {
   const results = new Array(items.length);
   let next = 0;
+  let failed = false;
   const worker = async () => {
-    while (next < items.length) {
+    // After a first failure (a 429, the forge down), the other workers stop:
+    // no more requests to a forge that already refused.
+    while (next < items.length && !failed) {
       const index = next++;
-      results[index] = await fn(items[index]);
+      try {
+        results[index] = await fn(items[index]);
+      } catch (err) {
+        failed = true;
+        throw err;
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
@@ -161,8 +171,10 @@ export class ForgeHub {
   }
 
   emptySaved() {
-    // repos: repository id → { releases: [ids], issue, pull, ci }
-    return { repos: {}, url: null };
+    // repos: repository id → { releases: [ids], issue, pull, ci, ciRead }, a
+    // field null until that part was read once; pending: scene events Gladys
+    // refused (it restarts), sent again at the next reading.
+    return { repos: {}, url: null, pending: [] };
   }
 
   // --- Lifecycle -------------------------------------------------------------
@@ -175,6 +187,7 @@ export class ForgeHub {
           ? saved.repos
           : {},
       url: typeof saved.url === 'string' ? saved.url : null,
+      pending: Array.isArray(saved.pending) ? saved.pending : [],
     };
     await this.reconfigure(config);
   }
@@ -414,9 +427,7 @@ export class ForgeHub {
       await this.store.save(this.saved);
     }
     await this.publishStates();
-    for (const event of events) {
-      await this.fire(event.key, event.data);
-    }
+    await this.sendEvents(events);
     return widgetChanged;
   }
 
@@ -425,13 +436,16 @@ export class ForgeHub {
    * @returns {{ saved: object, found: Array<{ key: string, data: object }> }}
    */
   compare({ repo, releases, issues, pulls, ci }) {
+    // Each part is compared only once it was read before: a part unreadable
+    // at the first reading (a token without read:issue) announces nothing
+    // old when it becomes readable.
     const before = this.saved.repos[String(repo.id)];
-    const known = Boolean(before);
     const saved = {
-      releases: before?.releases ?? [],
-      issue: before?.issue ?? 0,
-      pull: before?.pull ?? 0,
+      releases: Array.isArray(before?.releases) ? before.releases : null,
+      issue: Number.isInteger(before?.issue) ? before.issue : null,
+      pull: Number.isInteger(before?.pull) ? before.pull : null,
       ci: before?.ci ?? null,
+      ciRead: before?.ciRead === true,
     };
     const found = [];
     const device = repositoryIds(this.gladys, repo.id).device;
@@ -439,8 +453,9 @@ export class ForgeHub {
     const common = { repository: device, repository_name: repo.fullName };
 
     if (releases) {
-      const fresh = releases.filter((release) => !saved.releases.includes(release.id));
-      if (known) {
+      const seen = saved.releases;
+      const fresh = releases.filter((release) => !seen?.includes(release.id));
+      if (seen) {
         for (const release of fresh.slice(0, MAX_EVENTS).reverse()) {
           found.push({
             key: TRIGGERS.RELEASE,
@@ -456,7 +471,7 @@ export class ForgeHub {
           });
         }
       }
-      saved.releases = [...releases.map((release) => release.id), ...saved.releases]
+      saved.releases = [...releases.map((release) => release.id), ...(seen ?? [])]
         .filter((id, index, all) => all.indexOf(id) === index)
         .slice(0, SEEN_RELEASES);
     }
@@ -468,7 +483,8 @@ export class ForgeHub {
       if (!list) {
         continue;
       }
-      const fresh = list.filter((item) => item.number > saved[field]);
+      const known = saved[field] !== null;
+      const fresh = list.filter((item) => item.number > (saved[field] ?? 0));
       if (known) {
         for (const item of fresh.slice(0, MAX_EVENTS).reverse()) {
           found.push({
@@ -485,15 +501,19 @@ export class ForgeHub {
         }
       }
       // A repository without any issue yet stays at 0: its first issue counts.
-      saved[field] = Math.max(saved[field], ...list.map((item) => item.number));
+      saved[field] = Math.max(saved[field] ?? 0, ...list.map((item) => item.number));
     }
 
+    const ciKnown = saved.ciRead;
+    if (ci) {
+      saved.ciRead = true;
+    }
     if (ci && (ci.state === CI_STATES.SUCCESS || ci.state === CI_STATES.FAILURE)) {
       const turned =
         ci.state === CI_STATES.FAILURE
           ? saved.ci !== CI_STATES.FAILURE
           : saved.ci === CI_STATES.FAILURE;
-      if (known && turned) {
+      if (ciKnown && turned) {
         found.push({
           key: TRIGGERS.CI,
           data: {
@@ -521,12 +541,36 @@ export class ForgeHub {
     return wasError !== err.kind;
   }
 
+  /**
+   * Send the events refused before, then the new ones. One refused (Gladys
+   * restarting) is kept in /data and sent again at the next reading.
+   */
+  async sendEvents(events) {
+    const queue = [...this.saved.pending, ...events];
+    if (queue.length === 0) {
+      return;
+    }
+    const refused = [];
+    for (const event of queue) {
+      if (refused.length > 0 || !(await this.fire(event.key, event.data))) {
+        refused.push(event);
+      }
+    }
+    if (refused.length > 0 || this.saved.pending.length > 0) {
+      this.saved.pending = refused.slice(-MAX_PENDING);
+      await this.store.save(this.saved);
+    }
+  }
+
   async fire(eventKey, data) {
-    logger.info(`${data.repository_name}: ${eventKey}`);
     try {
       await this.gladys.publishSceneEvent(eventKey, data);
+      logger.info(`${data.repository_name}: ${eventKey}`);
+      this.problems.recover('events', 'Scene events accepted again');
+      return true;
     } catch (err) {
-      logger.warn(`Scene event ${eventKey} refused: ${err.message}`);
+      this.problems.fail('events', `Scene event ${eventKey} refused: ${err.message}`);
+      return false;
     }
   }
 
@@ -545,6 +589,14 @@ export class ForgeHub {
     return this.config.repositories
       .map((name) => this.entries.get(key(name)))
       .filter((entry) => entry?.repo);
+  }
+
+  /** The followed names whose repository was never read (an error each time). */
+  unreadNames() {
+    return this.config.repositories.filter((name) => {
+      const entry = this.entries.get(key(name));
+      return entry?.error && !entry.repo;
+    });
   }
 
   discoveredDevices() {

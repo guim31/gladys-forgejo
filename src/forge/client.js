@@ -309,9 +309,16 @@ export class ForgeClient {
     return data.map(normalize).filter(Boolean);
   }
 
-  /** The newest releases, drafts left out. */
-  releases(fullName, limit = 5) {
-    return this.list(`${this.repoPath(fullName)}/releases?limit=${limit}`, normalizeRelease);
+  /**
+   * The newest releases, drafts left out. Drafts are listed to a token that
+   * can write: twice the page, so a few drafts do not hide the releases.
+   */
+  async releases(fullName, limit = 5) {
+    const list = await this.list(
+      `${this.repoPath(fullName)}/releases?limit=${limit * 2}`,
+      normalizeRelease,
+    );
+    return list.slice(0, limit);
   }
 
   /**

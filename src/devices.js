@@ -191,12 +191,13 @@ export function repositoryValues(gladys, entry, language) {
       key: FEATURE_KEYS.LATEST_RELEASE,
       text: release ? release.tag : pick(NO_RELEASE, language),
     });
-    if (release?.published) {
-      values.push({
-        key: FEATURE_KEYS.LATEST_RELEASE_DATE,
-        text: formatDate(release.published, language),
-      });
-    }
+    // A text state is never empty: "No release" when there is none.
+    values.push({
+      key: FEATURE_KEYS.LATEST_RELEASE_DATE,
+      text: release?.published
+        ? formatDate(release.published, language)
+        : pick(NO_RELEASE, language),
+    });
   }
   if (ci) {
     values.push({ key: FEATURE_KEYS.CI_STATUS, text: pick(CI_TEXT[ci.state], language) });

@@ -218,6 +218,11 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
   listés à un jeton qui peut écrire, sont ignorés), tickets/PR par numéro maximal (`state=all`,
   `type=issues|pulls`, tri du plus récent par défaut), CI par transition (échec ← non-échec ; succès ←
   échec) ; 3 événements au plus par sorte, dépôt et lecture. Tout est sauvé **avant** l'envoi.
+- Chaque partie (versions, tickets, PR, CI) n'est comparée qu'**après une première lecture réussie
+  d'elle-même** (champ `null` avant) : un jeton sans `read:issue` corrigé plus tard n'annonce pas
+  les vieux tickets. Un événement refusé par Gladys (redémarrage) reste dans `pending` (/data, 20 au
+  plus) et repart à la lecture suivante. Les versions sont lues par 10 (les brouillons, listés à un
+  jeton qui écrit, ne cachent pas les vraies), puis gardées par 5.
 - Une erreur de forge (injoignable, 401, 429, TLS, redirection de `/version`) est globale ; une erreur
   de dépôt (404, 403, 307…) ne touche que lui.
 

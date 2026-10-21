@@ -101,6 +101,10 @@ async function get(hub, { settings, language = 'en' }) {
     return message(TEXT.empty, language);
   }
   const entries = sortEntries(selectEntries(hub, settings));
+  // Repositories never read (a typo, private without a token): shown first,
+  // when the widget shows every repository.
+  const chosen = [settings?.repositories ?? []].flat().some(Boolean);
+  const unread = chosen || hub.error ? [] : hub.unreadNames();
   const components = [];
   if (hub.error) {
     components.push({
@@ -109,16 +113,21 @@ async function get(hub, { settings, language = 'en' }) {
       text: pick(ERROR_TEXT[hub.error.kind], language),
     });
   }
-  if (entries.length > 0) {
-    const shown = entries.length > MAX_ROWS ? entries.slice(0, MAX_ROWS - 1) : entries;
-    const items = shown.map((entry) => {
-      const row = rowOf(entry, language);
-      return { label: fit(entry.repo.fullName, 40), ...row, value: fit(row.value, 40) };
-    });
-    if (entries.length > shown.length) {
+  const all = [
+    ...unread.map((name) => ({ label: name, ...rowOf({ error: true }, language) })),
+    ...entries.map((entry) => ({ label: entry.repo.fullName, ...rowOf(entry, language) })),
+  ];
+  if (all.length > 0) {
+    const shown = all.length > MAX_ROWS ? all.slice(0, MAX_ROWS - 1) : all;
+    const items = shown.map((row) => ({
+      ...row,
+      label: fit(row.label, 40),
+      value: fit(row.value, 40),
+    }));
+    if (all.length > shown.length) {
       items.push({
         label: pick(TEXT.more, language),
-        value: `+${entries.length - shown.length}`,
+        value: `+${all.length - shown.length}`,
         icon: 'more-horizontal',
         color: WIDGET_COLORS.NEUTRAL,
       });
